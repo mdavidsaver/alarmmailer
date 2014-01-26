@@ -6,18 +6,78 @@ from cothread import cosocket
 
 cosocket.socket_hook()
 
-import time, sys, traceback, smtplib
+import time, sys, os, traceback, smtplib
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from cothread import catools as ca
 
+if 'DJANGO_SETTINGS_MODULE' not in os.environ:
+    from django.conf import settings
+    settings.configure(INSTALLED_APPS=[], TEMPLATE_DIRS=['.'], TEMPLATE_DEBUG=True)
+
+import django.template.loader as loader
+
 from ConfigParser import SafeConfigParser as ConfigParser, NoOptionError, NoSectionError
 
-_SEVR = {0:'No Alarm', 1:'Minor', 2:'Major', 3:'Invalid', 4:'Disconnect'}
+_SEVR = {0:'No Alarm', 1:'Minor   ', 2:'Major   ', 3:'Invalid ', 4:'Disconn.'}
 def SEVR(sevr):
     return _SEVR.get(sevr, 'Unknown')
+
+class AlarmEvent(object):
+    def __init__(self, data, reason, config):
+        self._data, self.reason, self.section = data, reason, config
+        self.rxtimestamp = time.time()
+        if not data.ok:
+            data.severity = 4
+            data.status = 0
+            data.timestamp = self.rxtimestamp
+    def __getattr__(self, key):
+        return getattr(self._data, key)
+    @property
+    def sevr(self):
+        return self._data.severity
+    @property
+    def severity(self):
+        return SEVR(self._data.severity)
+    @property
+    def value(self):
+        return self._data
+    @property
+    def time(self):
+        return time.ctime(self._data.timestamp)
+    @property
+    def rxtime(self):
+        return time.ctime(self._data.rxtimestamp)
+    def __repr__(self):
+        return 'AlarmEvent(%s, %s)'%(self._data, self.reason)
+
+class InternalEvent(object):
+    def __init__(self, reason):
+        self.reason = reason
+        self.name = '<internal>'
+        self.value = None
+        self.sevr = 5
+        self.severity = "Internal"
+        self.status = 0
+        self.timestamp = self.rxtimestamp = time.time()
+        self.time = self.rxtime = self.ctime(self.timestamp)
+
+class AlarmReason(object):
+    def __init__(self, code, msg):
+        self.code, self.message = code, msg
+    def __str__(self):
+        return '%s (%d)'%(self.message, self.code)
+    def __repr__(self):
+        return 'AlarmReason(%d, "%s")'%(self.code, self.message)
+RES_NORMAL = AlarmReason(0, "Alarm cleared")
+RES_ALARM = AlarmReason(1, "Alarm")
+RES_INCREASE = AlarmReason(2, "Severity incresed")
+RES_DECREASE = AlarmReason(3, "Severity decresed")
+RES_DISCONN = AlarmReason(4, "Connection lost")
+RES_QFULL = AlarmReason(5, "Queue full")
+RES_LOST = AlarmReason(6, "Lost Events")
 
 _dft_msg = "%(severity)s\t%(name)s (%(value)s at %(time)s)"
 
@@ -61,10 +121,9 @@ class SectionProxy(object):
 class AlarmPV(object):
     def __init__(self, pvname, conf, notify):
         self._name, self._conf, self.notify = pvname, conf, notify
-        self._prev, self._isoos = None, False
+        self._prev = None
         self._sub = ca.camonitor(pvname, self._update,
                                  format=ca.FORMAT_TIME,
-                                 all_updates=True,
                                  count=1,
                                  notify_disconnect=True)
 
@@ -77,69 +136,34 @@ class AlarmPV(object):
         """
         P = self._prev
         self._prev = data
+
+        if data.update_count!=1:
+            self.notify.add(AlarmEvent(data, RES_LOST))
+
+        reason = None
         if P is None:
             # Initial update
             if self._conf.getbool('alarminitial',False):
                 if not data.ok:
-                    self.alarm_not_conn(data)
-                elif data.severity!=0:
-                    self.alarm_increase(data)
+                    reason = RES_DISCONN
+                if data.severity!=0:
+                    reason = RES_ALARM
             return
 
-        RX = time.time()
         if data.ok:
-            if abs(data.timestamp-RX)>50 and not self._isoos:
-                self._isoos = True
-                self.alarm_out_of_sync(data, RX)
-            else:
-                if self._isoos:
-                    self.alarm_in_sync(data)
-                self._isoos = False
-
             if P.severity and not data.severity:
-                self.alarm_normal(data)
+                reason = RES_NORMAL
+            elif not P.severity and data.severity:
+                reason = RES_ALARM
             elif P.severity < data.severity:
-                self.alarm_increase(data)
+                reason = RES_INCREASE
             elif P.severity > data.severity:
-                self.alarm_decrease(data)
+                reason = RES_DECREASE
         elif P.ok:
-            self.alarm_not_conn(data)
+            reason = RES_DISCONN
 
-    def alarm_not_conn(self, data):
-        V = {'name':data.name, 'time':time.ctime(),
-             'severity':'Disconnected', 'value':'???'}
-        msg = self._conf.get('msg.disconnect', _dft_msg)
-        self.notify.add(msg%V, (4,))
-
-    def alarm_increase(self, data):
-        V = {'name':data.name, 'time':time.ctime(data.timestamp),
-             'severity':SEVR(data.severity), 'value':str(data)}
-        msg = self._conf.get('msg.increase', _dft_msg)
-        self.notify.add(msg%V, (data.severity,))
-
-    def alarm_decrease(self, data):
-        V = {'name':data.name, 'time':time.ctime(data.timestamp),
-             'severity':SEVR(data.severity), 'value':str(data)}
-        msg = self._conf.get('msg.decrease', _dft_msg)
-        self.notify.add(msg%V, (data.severity,))
-
-    def alarm_normal(self, data):
-        V = {'name':data.name, 'time':time.ctime(data.timestamp),
-             'severity':SEVR(data.severity), 'value':str(data)}
-        msg = self._conf.get('msg.normal', _dft_msg)
-        self.notify.add(msg%V, (0,))
-
-    def alarm_out_of_sync(self, data, RX):
-        V = {'name':data.name, 'time':time.ctime(data.timestamp),
-             'severity':'Out of Sync', 'value':str(data)}
-        msg = self._conf.get('msg.normal', _dft_msg)
-        self.notify.add(msg%V, (3,))
-
-    def alarm_in_sync(self, data, RX):
-        V = {'name':data.name, 'time':time.ctime(data.timestamp),
-             'severity':'Back in Sync', 'value':str(data)}
-        msg = self._conf.get('msg.normal', _dft_msg)
-        self.notify.add(msg%V, (0,))
+        if reason is not None:
+            self.notify.add(AlarmEvent(data, reason, self._conf))
 
 class Notifier(object):
     _STOP = object()
@@ -151,6 +175,7 @@ class Notifier(object):
         self._N  = conf.getint('Qsize', 10)
 
         self._email = conf.getboolean('email', False)
+        self._email_nosend = conf.getboolean('email.nosend', False)
 
         self._Q, self._oflow = [], False
         self.waitn = cothread.Event(auto_reset=False)
@@ -162,43 +187,42 @@ class Notifier(object):
         self.sleep.Signal(self._STOP)
         self.T.Wait()
 
-    def add(self, msg, order):
+    def add(self, evt):
         if len(self._Q)>self._N:
             if not self._oflow:
                 self._oflow = True
-                msg = 'Q overflow!!!!!!'
-                order = (6,)
+                evt = InternalEvent(RES_QFULL)
             else:
                 return # Drop further events
 
         else:
             self._oflow = False
 
-        self._Q.append((msg, order))
+        self._Q.append(evt)
         self.waitn.Signal()
 
     def _run(self):
-        evt = None
-        while not evt or len(self._Q)!=0:
+        cevt = None # Control event
+        while not cevt or len(self._Q)!=0:
             # Wait for first entry in queue
-            if not evt:
-                evt = self.waitn.Wait()
+            if not cevt:
+                cevt = self.waitn.Wait()
 
             # Wait a while to batch up messages
             try:
-                if not evt:
-                    evt = self.sleep.Wait(self._BT)
+                if not cevt:
+                    cevt = self.sleep.Wait(self._BT)
             except cothread.Timedout:
                 pass
 
             self._Q, Q = [], self._Q
             self.waitn.Reset()
 
-            Q.sort(key=lambda E:E[1], reverse=True)
+            #Q.sort(key=lambda E:E[1], reverse=True)
 
             if self._V:
-                for msg, order in Q:
-                    print order,msg
+                for dataevt in Q:
+                    print dataevt
             if self._email:
                 try:
                     self.email_events(Q)
@@ -208,8 +232,8 @@ class Notifier(object):
 
             # Wait to enforce make rate
             try:
-                if not evt:
-                    evt = self.sleep.Wait(self._SP)
+                if not cevt:
+                    cevt = self.sleep.Wait(self._SP)
             except cothread.Timedout:
                 pass
 
@@ -223,10 +247,16 @@ class Notifier(object):
         msg['From'] = self._conf.get('email.from', 'Alarm Mailer')
         msg['Subject'] = '%d Alarm Events'%len(events)
 
-        msg.attach(self.format_plain(events))
-        msg.attach(self.format_html(events))
-        print 'Message'
-        print msg.as_string()
+        ctxt = {'events':events, 'notifier':self._conf, 'now':time.ctime()}
+        filename = self._conf.get('email.plain', 'template.txt')
+        msg.attach(MIMEText(loader.render_to_string(filename, ctxt), 'plain'))
+        filename = self._conf.get('email.html', 'template.html')
+        msg.attach(MIMEText(loader.render_to_string(filename, ctxt), 'html'))
+
+        if self._email_nosend:
+            print 'Email Message'
+            print msg.as_string()
+            return # for debugging and template development
 
         HOST = self._conf.get('email.server', 'localhost')
         PORT = self._conf.get('email.port', 0)
@@ -236,12 +266,9 @@ class Notifier(object):
         conn.sendmail(msg['From'], TO, msg.as_string())
         conn.quit()
 
-    def format_plain(self, events):
-        msg = "Events:\n\n%s\n"%('\n'.join([M[0] for M in events]))
-        return MIMEText(msg, 'plain')
-    def format_html(self, events):
-        msg = "<h3>Events</h3><ul>\n<li>%s</li>\n</ul>"%('</li>\n<li>'.join([M[0] for M in events]))
-        return MIMEText(msg, 'html')
+    def render(self, events, ckey):
+        filename = self._conf.get(ckey)
+        return loader.render_to_string(filename, {'events':events})
 
 def main():
     conf = sys.argv[1]
@@ -274,7 +301,7 @@ def main():
         print 'Empty configuration'
         sys.exit(1)
 
-    notify.add("Starting at %s"%(time.ctime(),), (6,))
+    print 'Starting'
 
     try:
         cothread.WaitForQuit()
@@ -285,7 +312,7 @@ def main():
         for pv in pvs:
             pv.close()
 
-    notify.add("Stopping at %s"%(time.ctime(),), (6,))
+    print 'Stopping'
 
     notify.close()
 

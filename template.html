@@ -1,0 +1,27 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head><style>
+table {background-color:#00acc5;}
+tr.rowEven {background-color:#17c7e1;}
+td.sevr1 {color:#ffa200;}
+td.sevr2 {color:#ff0000;}
+td.sevr3 {color:#c700ae;}
+td.sevr4 {color:#c700ae;}
+td.sevr5 {color:#c700ae;}
+</style></head>
+<h3>{{ events|length }} Alarm Events.</h3>
+<p>Generated at {{ now }}</p>
+<table><tbody>
+<tr>
+<th>Event Time</th>
+<th>Severity</th>
+<th>PV Name</th>
+<th>Value</th>
+</tr>
+{% for evt in events %}<tr class="{% cycle 'rowOdd' 'rowEven' %}">
+<td>{{ evt.time }}</td>
+<td class="sevr{{ evt.sevr }}"><b>{{ evt.severity }}</b></td>
+<td>{{ evt.name }}</td>
+<td>{{ evt.value }}</td>
+</tr>
+{% endfor %}
+</tbody></table></html>
