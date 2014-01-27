@@ -437,7 +437,7 @@ class main(object):
 
             elif 'pvlist_file' in pvg:
                 # pv list from file, one PV per line.  Blanks and comments ignored
-                filename = pvg.get('pvlist_file')
+                filename = os.path.join(self.opts.template, pvg.get('pvlist_file'))
                 LOG.debug('Reading PV list file: %s',filename)
                 with open(filename,'r') as FP:
                     pvlist = [line.strip() for line in FP.readlines()]
