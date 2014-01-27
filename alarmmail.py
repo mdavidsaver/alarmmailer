@@ -216,6 +216,9 @@ class Notifier(object):
             self._Q, Q = [], self._Q
             self.waitn.Reset()
 
+            if not Q:
+                continue
+
             if self._V:
                 for dataevt in Q:
                     LOG.debug('Event: %s',dataevt)
@@ -237,7 +240,7 @@ class Notifier(object):
     def email_events(self, events):
         import smtplib
         import django.template.loader as loader
-        msg = MIMEMultipart()
+        msg = MIMEMultipart('alternative')
 
         # take mail header directly from configuration
         msg['To'] = self._conf.get('email.to')
@@ -262,8 +265,9 @@ class Notifier(object):
 
         HOST = self._conf.get('email.server', 'localhost')
         PORT = self._conf.get('email.port', 0)
-        TO = map(str.strip, msg['To'])
+        TO = map(str.strip, msg['To'].split(','))
 
+        #LOG.debug('%s:%d TO %s From %s',HOST,PORT,TO,msg['From'])
         conn = smtplib.SMTP(HOST, PORT, None, 15)
         conn.sendmail(msg['From'], TO, msg.as_string())
         conn.quit()
