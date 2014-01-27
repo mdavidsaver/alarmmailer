@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+A daemon which monitors one or more groups of Process Variables
+and sends email periodic email with a list alarms which occur.
+"""
 
 import time, sys, os, os.path, atexit
 from optparse import  OptionParser
@@ -47,13 +51,13 @@ class AlarmEvent(object):
 class InternalEvent(object):
     def __init__(self, reason):
         self.reason = reason
-        self.name = '<internal>'
-        self.value = None
+        self.name = reason.message
+        self.value = ''
         self.sevr = 5
         self.severity = "Internal"
         self.status = 0
         self.timestamp = self.rxtimestamp = time.time()
-        self.time = self.rxtime = self.ctime(self.timestamp)
+        self.time = self.rxtime = time.ctime(self.timestamp)
 
 class AlarmReason(object):
     def __init__(self, code, msg):
@@ -69,6 +73,7 @@ RES_DECREASE = AlarmReason(3, "Severity decresed")
 RES_DISCONN = AlarmReason(4, "Connection lost")
 RES_QFULL = AlarmReason(5, "Queue full")
 RES_LOST = AlarmReason(6, "Lost Events")
+RES_START = AlarmReason(7, "Mailer starting")
 
 _dft_msg = "%(severity)s\t%(name)s (%(value)s at %(time)s)"
 
@@ -126,8 +131,7 @@ class AlarmPV(object):
         """Decide if an alarm is in effect and
         classify it
         """
-        P = self._prev
-        self._prev = data
+        P, self._prev = self._prev, data
 
         if data.update_count!=1:
             self.notify.add(AlarmEvent(data, RES_LOST))
@@ -163,9 +167,9 @@ class Notifier(object):
         import cothread
         self._conf = conf
         self._V = conf.get('print',False)
-        self._SP = conf.getdouble('maxperiod', 10.0)
-        self._BT = conf.getdouble('holdoff', 3.0)
-        self._N  = conf.getint('Qsize', 10)
+        self._SP = conf.getdouble('maxperiod', 600.0)
+        self._BT = conf.getdouble('holdoff', 300.0)
+        self._N  = conf.getint('Qsize', 200)
 
         self._email = conf.getboolean('email', False)
         self._email_nosend = conf.getboolean('email.nosend', False)
@@ -212,8 +216,6 @@ class Notifier(object):
             self._Q, Q = [], self._Q
             self.waitn.Reset()
 
-            #Q.sort(key=lambda E:E[1], reverse=True)
-
             if self._V:
                 for dataevt in Q:
                     LOG.debug('Event: %s',dataevt)
@@ -225,6 +227,7 @@ class Notifier(object):
                     LOG.exception("Failed to email %d events",len(Q))
 
             # Wait to enforce make rate
+            # The max. period is actually the sum _BT + _SP
             try:
                 if not cevt:
                     cevt = self.sleep.Wait(self._SP)
@@ -236,6 +239,7 @@ class Notifier(object):
         import django.template.loader as loader
         msg = MIMEMultipart()
 
+        # take mail header directly from configuration
         msg['To'] = self._conf.get('email.to')
         if not msg['To']:
             LOG.warn('No email recipients defined')
@@ -243,7 +247,9 @@ class Notifier(object):
         msg['From'] = self._conf.get('email.from', 'Alarm Mailer')
         msg['Subject'] = '%d Alarm Events'%len(events)
 
+        # the template context.
         ctxt = {'events':events, 'notifier':self._conf, 'now':time.ctime()}
+        # render to text for both mime types
         filename = self._conf.get('email.plain', 'template.txt')
         msg.attach(MIMEText(loader.render_to_string(filename, ctxt), 'plain'))
         filename = self._conf.get('email.html', 'template.html')
@@ -286,28 +292,42 @@ class main(object):
         self.P = P
 
     def daemonize(self):
+        """Fun double fork to free the daemon process
+        of its parent.
+        """
+        # A pipe to allow the parent to wait until the child
+        # has successfully initialized (or not).
         RD, WR = os.pipe()
         c1pid = os.fork()
         if c1pid > 0:
             # original process
+            os.close(WR)
             RD = os.fdopen(RD, 'r')
             print 'Waiting for daemon to initialize',c1pid
-            msg = RD.readline()
-            print 'init gives',msg
+            msg = '127'
+            for msg in RD.readlines():
+                print msg,
             RD.close()
-            sys.exit(int(msg))
+            ret = int(msg)
+            if ret:
+                print 'Daemon failed to start.',ret
+            else:
+                print 'Daemon started'
+            sys.exit(ret)
 
         # first child
+        os.close(RD)
+
         os.chdir('/')
         os.setsid()
         os.umask(0)
 
         c2pid = os.fork()
         if c2pid > 0:
-            print 'Child2 is',c2pid
             os.close(WR)
-            print 'Child2 exiting'
             sys.exit(0) # end first child
+
+        WR = os.fdopen(WR, 'w')
 
         # Initialize logging before detaching stdin/out
         from logging.handlers import RotatingFileHandler
@@ -317,14 +337,15 @@ class main(object):
         handler.setFormatter(fmt)
         root.addHandler(handler)
         root.setLevel(logging.DEBUG)
-        LOG.info("Logging initialized")
+        WR.write("Logging initialized\n")
 
         sys.stdout.flush()
         sys.stderr.flush()
+        #TODO: Don't leak descriptors...
         os.dup2(os.open(os.path.devnull, os.O_RDONLY), sys.stdin.fileno())
         os.dup2(os.open(os.path.devnull, os.O_WRONLY), sys.stdout.fileno())
         os.dup2(os.open(os.path.devnull, os.O_WRONLY), sys.stderr.fileno())
-        LOG.info("Output redirected")
+        WR.write("Output redirected\n")
 
         try:
             atexit.register(os.unlink, self.opts.pid)
@@ -332,9 +353,12 @@ class main(object):
             os.write(FD, "%d"%os.getpid())
             os.close(FD)
         except:
-            LOG.exception("Failed to create pid file %s", self.opts.pid)
-            os.write(WR, '1\n')
+            WR.write("Failed to create pid file %s\n"%self.opts.pid)
+            import traceback
+            traceback.print_exc(file=WR)
+            WR.write("1\n")
             sys.exit(1)
+        # At this point we know we have exclusive control of the log
         LOG.info("PID file written")
 
         return WR
@@ -356,7 +380,7 @@ class main(object):
             LOG.info("Daemon running")
         except:
             if self.opts.daemonize:
-                os.write(WR, "1\n")
+                WR.write("1\n")
             raise
         else:
             if self.opts.daemonize:
@@ -368,8 +392,8 @@ class main(object):
                 signal.signal(signal.SIGINT, handler)
                 signal.signal(signal.SIGTERM, handler)
                 # notify original parent that we have successfully started
-                os.write(WR, '0\n')
-                os.close(WR)
+                WR.write("0\n")
+                WR.close()
 
         try:
             cothread.WaitForQuit()
@@ -384,7 +408,7 @@ class main(object):
         
         self.notify.close()
     
-        LOG.info("Done")
+        LOG.info("Shut down complete")
 
     def startChild(self):
         if 'DJANGO_SETTINGS_MODULE' not in os.environ:
@@ -404,19 +428,31 @@ class main(object):
                 sys.exit(1)
             pvg = SectionProxy(P, pvg)
             if 'pvs' in pvg:
+                # space seperated pv list from config file
                 pvlist = map(str.strip, pvg.get('pvs').split(' '))
+
+            elif 'pvlist_file' in pvg:
+                # pv list from file, one PV per line.  Blanks and comments ignored
+                filename = pvg.get('pvlist_file')
+                LOG.debug('Reading PV list file: %s',filename)
+                with open(filename,'r') as FP:
+                    pvlist = [line.strip() for line in FP.readlines()]
+                    # filter out blank lines and comments
+                    pvlist = filter(lambda line:line and line[0]!='#', pvlist)
+
             else:
-                LOG.warn('No PV list specified for %s',pvg.name)
+                LOG.warn('No PV list specified for group %s',pvg.name)
                 continue
     
-            pvs = [AlarmPV(name, pvg, notify) for name in pvlist]
-    
-            groups[pvg.name] = pvs
+            groups[pvg.name] = [AlarmPV(name, pvg, notify) for name in pvlist]
     
         if len(groups)==0:
             LOG.fatal('Empty configuration')
             sys.exit(1)
-    
+
+        if M.get('alarminitial', False):
+            self.notify.add(InternalEvent(RES_START))
+
 if __name__=='__main__':
     M = main()
     try:
