@@ -1,25 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import cothread
-from cothread import cosocket
-
-cosocket.socket_hook()
-
-import time, sys, os, traceback, smtplib
+import time, sys, os, os.path, atexit
+from optparse import  OptionParser
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from cothread import catools as ca
-
-if 'DJANGO_SETTINGS_MODULE' not in os.environ:
-    from django.conf import settings
-    settings.configure(INSTALLED_APPS=[], TEMPLATE_DIRS=['.'], TEMPLATE_DEBUG=True)
-
-import django.template.loader as loader
-
 from ConfigParser import SafeConfigParser as ConfigParser, NoOptionError, NoSectionError
+
+import logging
+LOG = logging.getLogger(__name__)
 
 _SEVR = {0:'No Alarm', 1:'Minor   ', 2:'Major   ', 3:'Invalid ', 4:'Disconn.'}
 def SEVR(sevr):
@@ -120,6 +111,7 @@ class SectionProxy(object):
 
 class AlarmPV(object):
     def __init__(self, pvname, conf, notify):
+        from cothread import catools as ca
         self._name, self._conf, self.notify = pvname, conf, notify
         self._prev = None
         self._sub = ca.camonitor(pvname, self._update,
@@ -168,6 +160,7 @@ class AlarmPV(object):
 class Notifier(object):
     _STOP = object()
     def __init__(self, conf):
+        import cothread
         self._conf = conf
         self._V = conf.get('print',False)
         self._SP = conf.getdouble('maxperiod', 10.0)
@@ -202,6 +195,7 @@ class Notifier(object):
         self.waitn.Signal()
 
     def _run(self):
+        import cothread
         cevt = None # Control event
         while not cevt or len(self._Q)!=0:
             # Wait for first entry in queue
@@ -222,13 +216,13 @@ class Notifier(object):
 
             if self._V:
                 for dataevt in Q:
-                    print dataevt
+                    LOG.debug('Event: %s',dataevt)
             if self._email:
+                LOG.info('Sending alarm email with %d events', len(Q))
                 try:
                     self.email_events(Q)
                 except:
-                    print time.ctime(),'Failed to email',len(Q),'events'
-                    traceback.print_exc()
+                    LOG.exception("Failed to email %d events",len(Q))
 
             # Wait to enforce make rate
             try:
@@ -238,11 +232,13 @@ class Notifier(object):
                 pass
 
     def email_events(self, events):
+        import smtplib
+        import django.template.loader as loader
         msg = MIMEMultipart()
 
         msg['To'] = self._conf.get('email.to')
         if not msg['To']:
-            print 'No email recipients defined'
+            LOG.warn('No email recipients defined')
             return
         msg['From'] = self._conf.get('email.from', 'Alarm Mailer')
         msg['Subject'] = '%d Alarm Events'%len(events)
@@ -254,8 +250,8 @@ class Notifier(object):
         msg.attach(MIMEText(loader.render_to_string(filename, ctxt), 'html'))
 
         if self._email_nosend:
-            print 'Email Message'
-            print msg.as_string()
+            LOG.debug('Email Message')
+            LOG.debug(msg.as_string())
             return # for debugging and template development
 
         HOST = self._conf.get('email.server', 'localhost')
@@ -266,57 +262,169 @@ class Notifier(object):
         conn.sendmail(msg['From'], TO, msg.as_string())
         conn.quit()
 
-    def render(self, events, ckey):
-        filename = self._conf.get(ckey)
-        return loader.render_to_string(filename, {'events':events})
+_FMT = "%(asctime)s %(levelname)s:%(message)s"
 
-def main():
-    conf = sys.argv[1]
-    P = ConfigParser()
-    with open(conf,'r') as F:
-        P.readfp(F)
-
-    M = SectionProxy(P, 'main')
-
-    notify = Notifier(SectionProxy(P, 'notifier'))
-
-    groups = {}
+class main(object):
+    def __init__(self):
+        parser = OptionParser()
+        parser.add_option('-D','--daemonize', action='store_true', default=False,
+                          help="Fork to background")
+        parser.add_option('-T','--template', default=os.getcwd(), metavar='DIR',
+                          help='Directory with email templates')
+        parser.add_option('-P','--pid', default='daemon.pid', metavar='FILE',
+                          help="Write daemon process id to this file")
+        parser.add_option('-L','--log', default='daemon.log', metavar='FILE',
+                          help="Write logs to this file")
+        parser.add_option('-C','--config', default='daemon.conf', metavar='FILE',
+                          help='Read configuration from this file')
     
-    for pvg in map(str.strip, M.get('groups','').split(' ')):
-        if not pvg:
-            print 'No PV groups given'
+        self.opts, args = parser.parse_args()
+    
+        P = ConfigParser()
+        with open(self.opts.config,'r') as F:
+            P.readfp(F)
+        self.P = P
+
+    def daemonize(self):
+        RD, WR = os.pipe()
+        c1pid = os.fork()
+        if c1pid > 0:
+            # original process
+            RD = os.fdopen(RD, 'r')
+            print 'Waiting for daemon to initialize',c1pid
+            msg = RD.readline()
+            print 'init gives',msg
+            RD.close()
+            sys.exit(int(msg))
+
+        # first child
+        os.chdir('/')
+        os.setsid()
+        os.umask(0)
+
+        c2pid = os.fork()
+        if c2pid > 0:
+            print 'Child2 is',c2pid
+            os.close(WR)
+            print 'Child2 exiting'
+            sys.exit(0) # end first child
+
+        # Initialize logging before detaching stdin/out
+        from logging.handlers import RotatingFileHandler
+        root = logging.getLogger()
+        fmt = logging.Formatter(_FMT)
+        handler = RotatingFileHandler(self.opts.log, maxBytes=100000, backupCount=5)
+        handler.setFormatter(fmt)
+        root.addHandler(handler)
+        root.setLevel(logging.DEBUG)
+        LOG.info("Logging initialized")
+
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(os.open(os.path.devnull, os.O_RDONLY), sys.stdin.fileno())
+        os.dup2(os.open(os.path.devnull, os.O_WRONLY), sys.stdout.fileno())
+        os.dup2(os.open(os.path.devnull, os.O_WRONLY), sys.stderr.fileno())
+        LOG.info("Output redirected")
+
+        try:
+            atexit.register(os.unlink, self.opts.pid)
+            FD = os.open(self.opts.pid, os.O_CREAT|os.O_EXCL|os.O_WRONLY, 0644)
+            os.write(FD, "%d"%os.getpid())
+            os.close(FD)
+        except:
+            LOG.exception("Failed to create pid file %s", self.opts.pid)
+            os.write(WR, '1\n')
             sys.exit(1)
-        pvg = SectionProxy(P, pvg)
-        if 'pvs' in pvg:
-            pvlist = map(str.strip, pvg.get('pvs').split(' '))
+        LOG.info("PID file written")
+
+        return WR
+        # second child
+
+    def start(self):
+        import cothread
+        if self.opts.daemonize:
+            WR = self.daemonize()
         else:
-            print 'No PV list specified for',pvg.name
-            continue
+            logging.basicConfig(level=logging.DEBUG, format=_FMT)
 
-        pvs = [AlarmPV(name, pvg, notify) for name in pvlist]
+        from cothread import cosocket
+        cosocket.socket_hook()
 
-        groups[pvg.name] = pvs
+        try:
+            LOG.info("Daemon startting")
+            self.startChild()
+            LOG.info("Daemon running")
+        except:
+            if self.opts.daemonize:
+                os.write(WR, "1\n")
+            raise
+        else:
+            if self.opts.daemonize:
+                import signal
+                def handler(sig,frame):
+                    import cothread
+                    cothread.Quit()
+                signal.signal(signal.SIGHUP, handler)
+                signal.signal(signal.SIGINT, handler)
+                signal.signal(signal.SIGTERM, handler)
+                # notify original parent that we have successfully started
+                os.write(WR, '0\n')
+                os.close(WR)
 
-    if len(groups)==0:
-        print 'Empty configuration'
-        sys.exit(1)
+        try:
+            cothread.WaitForQuit()
+        except KeyboardInterrupt:
+            pass
+    
+        LOG.info("Shutting down")
+    
+        for pvs in self.groups.itervalues():
+            for pv in pvs:
+                pv.close()
+        
+        self.notify.close()
+    
+        LOG.info("Done")
 
-    print 'Starting'
+    def startChild(self):
+        if 'DJANGO_SETTINGS_MODULE' not in os.environ:
+            from django.conf import settings
+            settings.configure(INSTALLED_APPS=[], TEMPLATE_DIRS=[self.opts.template], TEMPLATE_DEBUG=True)
 
-    try:
-        cothread.WaitForQuit()
-    except KeyboardInterrupt:
-        pass
+        P = self.P
+        M = SectionProxy(P, 'main')
 
-    for pvs in groups.itervalues():
-        for pv in pvs:
-            pv.close()
-
-    print 'Stopping'
-
-    notify.close()
-
-    print 'Done'
-
+        self.notify = notify = Notifier(SectionProxy(P, 'notifier'))
+    
+        self.groups = groups = {}
+        
+        for pvg in map(str.strip, M.get('groups','').split(' ')):
+            if not pvg:
+                LOG.fatal('No PV groups given')
+                sys.exit(1)
+            pvg = SectionProxy(P, pvg)
+            if 'pvs' in pvg:
+                pvlist = map(str.strip, pvg.get('pvs').split(' '))
+            else:
+                LOG.warn('No PV list specified for %s',pvg.name)
+                continue
+    
+            pvs = [AlarmPV(name, pvg, notify) for name in pvlist]
+    
+            groups[pvg.name] = pvs
+    
+        if len(groups)==0:
+            LOG.fatal('Empty configuration')
+            sys.exit(1)
+    
 if __name__=='__main__':
-    main()
+    M = main()
+    try:
+        M.start()
+    except (SystemExit, KeyboardInterrupt):
+        raise
+    except:
+        LOG.exception("Unhandled exception")
+        raise
+    else:
+        LOG.info('Done')
