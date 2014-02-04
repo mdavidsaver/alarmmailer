@@ -1,5 +1,5 @@
-record(calc, "cnt") {
-  field(INPA, "cnt.VAL")
+record(calc, "cnt$(S)") {
+  field(INPA, "cnt$(S).VAL")
   field(INPB, "10")
   field(CALC, "C:=A>=B?0:(A<=0?1:C);C?A+1:A-1")
   field(SCAN, "1 second")
@@ -9,4 +9,11 @@ record(calc, "cnt") {
   field(LSV , "INVALID")
   field(HSV , "MINOR")
   field(HHSV, "MAJOR")
+}
+
+record(bi, "static$(S)") {
+  field(ZNAM, "0")
+  field(ONAM, "1")
+  field(OSV , "MAJOR")
+  field(PINI, "YES")
 }
