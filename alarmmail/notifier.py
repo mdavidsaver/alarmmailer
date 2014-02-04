@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Copyright 2013 Michael Davidsaver
+GPL 2+
+See license in README
+"""
 
 import logging
 LOG = logging.getLogger(__name__)

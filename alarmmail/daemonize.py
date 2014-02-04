@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Steps to fork off as a background process
+Copyright 2013 Michael Davidsaver
+GPL 2+
+See license in README
 """
 
 import logging
