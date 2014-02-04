@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Copyright 2013 Michael Davidsaver
+Copyright 2014 Michael Davidsaver
 GPL 2+
 See license in README
 """
