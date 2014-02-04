@@ -77,3 +77,6 @@ class Notifier(util.WorkerQueue):
 
         if not self.server.add((self._conf.mto, self._conf.mfrom, msg)):
             LOG.error("Failed to Q '%s' to: %s", msg['Subject'], msg['To'])
+
+    def __repr__(self):
+        return 'Notifier(%s)'%self._conf.name
