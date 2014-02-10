@@ -44,7 +44,8 @@ class EmailServer(util.WorkerQueue):
 
         conn = self._transport(self.server, self.port, timeout=self.timeout)
         for mfrom, mto, msg in evts:
-            conn.sendmail(mfrom, mto, msg)
+            #LOG.debug('From: %s To: %s\n%s\n', mfrom, mto, msg)
+            conn.sendmail(mfrom, mto, msg.as_string())
         conn.quit()
 
 class Notifier(util.WorkerQueue):

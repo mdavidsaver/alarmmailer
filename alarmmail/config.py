@@ -8,7 +8,7 @@ See license in README
 import logging
 LOG = logging.getLogger(__name__)
 
-import os.path, itertools
+import os, os.path, itertools
 
 from ConfigParser import SafeConfigParser as ConfigParser, NoOptionError, NoSectionError
 
@@ -68,7 +68,7 @@ class PVNode(object):
             desclist = pvlist
         elif 'pvlist_file' in C:
             # pv list from file, one PV per line.  Blanks and comments ignored
-            filename = os.path.join(self.opts.template, C.get('pvlist_file'))
+            filename = os.path.join(os.getcwd(), C.get('pvlist_file'))
             LOG.debug('Reading PV list file: %s',filename)
             with open(filename,'r') as FP:
                 pvlist, desclist = [], []
