@@ -33,9 +33,9 @@ def main():
 
     C = config.loadconfig(opts.config)
 
-    done = None
+    import daemonize
+
     if opts.daemonize:
-        import daemonize
         done = daemonize.daemonize(opts.log, opts.pid)
         import signal
         def handler(sig,frame):
@@ -44,6 +44,9 @@ def main():
         signal.signal(signal.SIGHUP, handler)
         signal.signal(signal.SIGINT, handler)
         signal.signal(signal.SIGTERM, handler)
+
+    else:
+        done = daemonize.NullNotify()
 
     LOG.info('initialize coselect')
     from cothread.coselect import select_hook
@@ -87,8 +90,7 @@ def main():
             if dest._conf.oninitial:
                 dest.add(util.InternalEvent(util.RES_START))
 
-        if done:
-            done.msg("Waiting for PVs to connect")
+        done.msg("Waiting for PVs to connect")
 
         #TODO smarter wait...
         import cothread
@@ -99,11 +101,9 @@ def main():
             if apv._prev is None:
                 apv._notify.add(util.AlarmEvent(util.DummyValue(apv._name), util.RES_DISCONN, apv._conf))
 
-        if done:
-            done.done(0, 'Setup complete')
+        done.done(0, 'Setup complete')
     except:
-        if done:
-            done.exception('Setup failed')
+        done.exception('Setup failed')
         raise
     done = True
 

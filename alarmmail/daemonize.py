@@ -41,6 +41,24 @@ class UserNotify(object):
             import traceback
             traceback.print_exception(A,B,C, file=self._fd)
 
+class NullNotify(object):
+    def msg(self, msg):
+        print msg
+    def done(self, code, msg):
+        if msg:
+            self.msg(msg)
+        if code:
+            sys.exit(code)
+    def exception(self, msg):
+        if msg:
+            self.msg(msg)
+        import traceback
+        traceback.print_exc(file=self._fd)
+    def __enter__(self):
+        return self
+    def __exit__(self, A, B, C):
+        pass
+
 def daemonize(logfile='log', pidfile='pid'):
     """Fun double fork to free the daemon process
     of its parent.
