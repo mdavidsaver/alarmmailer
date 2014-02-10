@@ -80,8 +80,13 @@ def main():
         for pvnodename, pvnode in C['pv'].iteritems():
             node = pv.NotifyFanout()
             pvs.extend([pv.PV(name, pvnode, node) for name in pvnode.pvs])
-            for dest in pvg2dest[pvnodename]:
-                node.add_notify(dest)
+            try:
+                dests = pvg2dest[pvnodename]
+            except KeyError:
+                LOG.warning("PV group %s not referenced by any destinations", pvnodename)
+            else:
+                for dest in dests:
+                    node.add_notify(dest)
 
         import util
 

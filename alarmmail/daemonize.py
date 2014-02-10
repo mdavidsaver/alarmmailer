@@ -86,7 +86,10 @@ def daemonize(logfile='log', pidfile='pid'):
                 msg = l
                 print msg,
         RD.close()
-        code = int(msg)
+        try:
+            code = int(msg)
+        except ValueError:
+            code = 127
         if code:
             print 'Daemon failed to start.',code
         else:
