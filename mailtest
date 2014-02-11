@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+
+import logging
+LOG = logging.getLogger(__name__)
+
+import cothread
+from cothread.coselect import select_hook
+select_hook()
+
+from alarmmail import config, notifier, util
+
+from optparse import  OptionParser
+
+class DummyLoader(object):
+    def render_to_string(self, A, B):
+        return 'Test message'
+class TestNotifier(notifier.Notifier):
+    def __init__(self, dest, serv):
+        notifier.Notifier.__init__(self, dest, serv)
+        self._loader = DummyLoader()
+
+def main():
+    parser = OptionParser()
+    parser.add_option('--to', help='Destination address(es)')
+    parser.add_option('--from', dest='mfrom', help='Source address')
+    parser.add_option('--server', help='SMTP server')
+    parser.add_option('--nosend', action='store_true', default=False, help="Print message without sending")
+
+    opts, args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG)
+
+    LOG.info('Starting mail sender')
+
+    mail = config.SectionProxy.fromArgs('mail', server=opts.server, timeout='5',
+                                        delay='1', holdoff='2', nosend=str(opts.nosend))
+
+    mailserv = notifier.EmailServer(mail)
+
+    LOG.info('Starting destination node')
+
+    dest = config.SectionProxy.fromArgs('testdest', **{'to':opts.to, 'from':opts.mfrom,
+                                        'subject':'Test mail', 'delay':'1', 'holdoff':'2', 'groups':'x'})
+
+    dest = config.DestNode(dest)
+
+    dispatch = TestNotifier(dest, mailserv)
+
+    LOG.info('Queue test mail')
+
+    dispatch.add(util.InternalEvent(util.RES_START))
+
+    cothread.Sleep(5)
+
+    dispatch.close()
+    mailserv.close()
+
+    LOG.info('Done')
+
+if __name__=='__main__':
+    main()

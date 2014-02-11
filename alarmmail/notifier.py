@@ -64,9 +64,9 @@ class Notifier(util.WorkerQueue):
         msg = MIMEMultipart('alternative')
 
         # take mail header directly from configuration
-        msg['To'] = ', '.join(self._conf.mto)
-        msg['From'] = self._conf.mfrom
         msg['Subject'] = self._conf.msubject%{'cnt':len(evts)}
+        msg['From'] = self._conf.mfrom
+        msg['To'] = ', '.join(self._conf.mto)
 
         # the template context.
         ctxt = {'events':evts, 'notifier':self._conf, 'now':time.ctime()}
@@ -76,7 +76,7 @@ class Notifier(util.WorkerQueue):
         filename = self._conf.html
         msg.attach(MIMEText(self._loader.render_to_string(filename, ctxt), 'html'))
 
-        if not self.server.add((self._conf.mto, self._conf.mfrom, msg)):
+        if not self.server.add((self._conf.mfrom, self._conf.mto, msg)):
             LOG.error("Failed to Q '%s' to: %s", msg['Subject'], msg['To'])
 
     def __repr__(self):
