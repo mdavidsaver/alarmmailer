@@ -101,7 +101,7 @@ class DestNode(object):
         self.msubject = C.get('subject', '%(cnt)d Alarm Events')
 
         self.delay = C.getdouble('delay', 300.0)
-        self.holdoff = C.getdouble('holdoff', 600.0)
+        self.holdoff = C.getdouble('holdoff', 900.0)
         self.qsize = C.getint('queueSize', 200)
 
         self.groups = C.get('groups','').split(' ')
