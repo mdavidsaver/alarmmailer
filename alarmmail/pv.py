@@ -27,6 +27,7 @@ class PV(object):
         self._name, self._notify, self._conf = pvname, notify, conf
         self._prev = None
         self._sub = ca.camonitor(pvname, self._update,
+                                 datatype=ca.DBR_STRING,
                                  format=ca.FORMAT_TIME,
                                  count=1,
                                  notify_disconnect=True)

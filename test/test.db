@@ -1,4 +1,4 @@
-record(calc, "cnt$(S)") {
+record(calcout, "cnt$(S)") {
   field(INPA, "cnt$(S).VAL")
   field(INPB, "10")
   field(CALC, "C:=A>=B?0:(A<=0?1:C);C?A+1:A-1")
@@ -9,11 +9,21 @@ record(calc, "cnt$(S)") {
   field(LSV , "INVALID")
   field(HSV , "MINOR")
   field(HHSV, "MAJOR")
+  field(DOPT, "Use OCAL")
+  field(OCAL, "(A&1)==0")
+  field(OUT , "even$(S) PP")
+}
+
+record(bi, "even$(S)") {
+  field(ZNAM, "Zero")
+  field(ONAM, "One")
+  field(OSV , "MAJOR")
+  field(PINI, "YES")
 }
 
 record(bi, "static$(S)") {
-  field(ZNAM, "0")
-  field(ONAM, "1")
+  field(ZNAM, "Zero")
+  field(ONAM, "One")
   field(OSV , "MAJOR")
   field(PINI, "YES")
 }
