@@ -53,7 +53,7 @@ class NullNotify(object):
         if msg:
             self.msg(msg)
         import traceback
-        traceback.print_exc(file=self._fd)
+        traceback.print_exc()
     def __enter__(self):
         return self
     def __exit__(self, A, B, C):
