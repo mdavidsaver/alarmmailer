@@ -78,11 +78,8 @@ class PVNode(object):
                         continue
                     parts = map(str.strip, line.split('|',1))
                     pvlist.append(parts[0])
-                    if len(parts)>1:
-                        desclist.append(parts[1])
-                    else:
-                        desclist.append(parts[0])
-                    
+                    desclist.append(parts[-1])
+
         else:
             raise ValueError("No PV list found for group %s"%C.name)
 

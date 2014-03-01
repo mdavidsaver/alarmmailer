@@ -6,6 +6,6 @@
 Generated at {{ now }}
 
 {% for grp in gevents %}Group: {{ grp.grouper }}
-{% for evt in grp.list %}  {{ evt.time }} {{ evt.severity }} {{ evt.name }} {{ evt.value }} {{ evt.units }}
+{% for evt in grp.list %}  {{ evt.time }} {{ evt.severity }} {{ evt.desc }} {{ evt.value }} {{ evt.units }}
 {% endfor %}
 {% endfor %}

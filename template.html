@@ -19,13 +19,13 @@ td.sevr5 {color:#c700ae;}
 <tr>
 <th>Event Time</th>
 <th>Severity</th>
-<th>PV Name</th>
+<th>PV</th>
 <th>Value</th>
 </tr>
 {% for evt in grp.list %}<tr class="{% cycle 'rowOdd' 'rowEven' %}">
 <td>{{ evt.time }}</td>
 <td class="sevr{{ evt.sevr }}"><b>{{ evt.severity }}</b></td>
-<td>{{ evt.name }}</td>
+<td>{{ evt.desc }}</td>
 <td>{{ evt.value }} {{ evt.units }}</td>
 </tr>
 {% endfor %}</tbody></table>

@@ -62,7 +62,7 @@ class AlarmEvent(object):
             return ''
     @property
     def desc(self):
-        return self.conf.desc.get(self._data.name, self._data.name)
+        return self.conf.desc[self._data.name]
     def __repr__(self):
         return 'AlarmEvent(\'%s\', %s, %s, %s)'%(self._data.name, self._data, self.severity, self.reason)
 
