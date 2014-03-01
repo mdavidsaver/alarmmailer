@@ -1,5 +1,11 @@
-{{ events|length }} Alarm Events.
+{% spaceless %}
+{% load alarmsort %}
+{% sortbyattr events conf.name as sevents %}
+{% regroup sevents by conf.name as gevents %}
+{% endspaceless %}{{ events|length }} Alarm Events in {{ gevents|length }} groups.
 Generated at {{ now }}
 
-{% for evt in events %}{{ evt.time }} {{ evt.severity }} {{ evt.name }} {{ evt.value }} {{ evt.units }}
+{% for grp in gevents %}Group: {{ grp.grouper }}
+{% for evt in grp.list %}  {{ evt.time }} {{ evt.severity }} {{ evt.name }} {{ evt.value }} {{ evt.units }}
+{% endfor %}
 {% endfor %}

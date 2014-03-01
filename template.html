@@ -1,4 +1,8 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+{% spaceless %}
+{% load alarmsort %}
+{% sortbyattr events conf.name as sevents %}
+{% regroup sevents by conf.name as gevents %}
+{% endspaceless %}<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><style>
 table {background-color:#00acc5;}
 tr.rowEven {background-color:#17c7e1;}
@@ -8,8 +12,9 @@ td.sevr3 {color:#c700ae;}
 td.sevr4 {color:#c700ae;}
 td.sevr5 {color:#c700ae;}
 </style></head>
-<h3>{{ events|length }} Alarm Events.</h3>
+<h3>{{ events|length }} Alarm Events in {{ gevents|length }} Groups.</h3>
 <p>Generated at {{ now }}</p>
+{% for grp in gevents %}<h4>Group: {{ grp.grouper }}</h4>
 <table><tbody>
 <tr>
 <th>Event Time</th>
@@ -17,11 +22,11 @@ td.sevr5 {color:#c700ae;}
 <th>PV Name</th>
 <th>Value</th>
 </tr>
-{% for evt in events %}<tr class="{% cycle 'rowOdd' 'rowEven' %}">
+{% for evt in grp.list %}<tr class="{% cycle 'rowOdd' 'rowEven' %}">
 <td>{{ evt.time }}</td>
 <td class="sevr{{ evt.sevr }}"><b>{{ evt.severity }}</b></td>
 <td>{{ evt.name }}</td>
 <td>{{ evt.value }} {{ evt.units }}</td>
 </tr>
-{% endfor %}
-</tbody></table></html>
+{% endfor %}</tbody></table>
+{% endfor %}</html>

@@ -55,7 +55,9 @@ def main():
     try:
         if 'DJANGO_SETTINGS_MODULE' not in os.environ:
             from django.conf import settings
-            settings.configure(INSTALLED_APPS=[], TEMPLATE_DIRS=opts.template.split(':'), TEMPLATE_DEBUG=True)
+            settings.configure(INSTALLED_APPS=['alarmmail'],
+                               TEMPLATE_DIRS=opts.template.split(':'),
+                               TEMPLATE_DEBUG=True)
 
         from . import notifier
 
