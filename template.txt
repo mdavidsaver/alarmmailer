@@ -1,5 +1,5 @@
 {{ events|length }} Alarm Events.
 Generated at {{ now }}
 
-{% for evt in events %}{{ evt.time }} {{ evt.severity }} {{ evt.name }} {{ evt.value }}
+{% for evt in events %}{{ evt.time }} {{ evt.severity }} {{ evt.name }} {{ evt.value }} {{ evt.units }}
 {% endfor %}

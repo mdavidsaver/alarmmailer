@@ -106,7 +106,7 @@ def main():
         for apv in pvs:
             if apv._prev is None:
                 ndis += 1
-                apv._notify.add(util.AlarmEvent(util.DummyValue(apv._name), util.RES_DISCONN, apv._conf))
+                apv._notify.add(util.AlarmEvent(util.DummyValue(apv._name), None, util.RES_DISCONN, apv._conf))
 
         LOG.info("%d disconnected PVs", ndis)
 

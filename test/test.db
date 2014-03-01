@@ -9,6 +9,7 @@ record(calcout, "cnt$(S)") {
   field(LSV , "INVALID")
   field(HSV , "MINOR")
   field(HHSV, "MAJOR")
+  field(EGU , "cnt")
   field(DOPT, "Use OCAL")
   field(OCAL, "(A&1)==0")
   field(OUT , "even$(S) PP")

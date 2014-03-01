@@ -26,16 +26,19 @@ class DummyValue(object):
         return "N/A"
 
 class AlarmEvent(object):
-    def __init__(self, data, reason, conf):
+    def __init__(self, data, meta, reason, conf):
         assert data is not None
-        self._data, self.reason, self.conf = data, reason, conf
+        self._data, self._meta, self.reason, self.conf = data, meta, reason, conf
         self.rxtimestamp = time.time()
         if not data.ok:
             data.severity = 4
             data.status = 0
             data.timestamp = self.rxtimestamp
     def __getattr__(self, key):
-        return getattr(self._data, key)
+        try:
+            return getattr(self._data, key)
+        except AttributeError:
+            return getattr(self._meta, key)
     @property
     def sevr(self):
         return self._data.severity
@@ -51,6 +54,12 @@ class AlarmEvent(object):
     @property
     def rxtime(self):
         return time.ctime(self._data.rxtimestamp)
+    @property
+    def units(self):
+        try:
+            return self._meta.units
+        except:
+            return ''
     @property
     def desc(self):
         return self.conf.desc.get(self._data.name, self._data.name)

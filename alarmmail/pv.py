@@ -25,7 +25,7 @@ class PV(object):
     def __init__(self, pvname, conf, notify):
         from cothread import catools as ca
         self._name, self._notify, self._conf = pvname, notify, conf
-        self._prev = None
+        self._prev, self._meta = None, None
         self._sub = ca.camonitor(pvname, self._update,
                                  datatype=ca.DBR_STRING,
                                  format=ca.FORMAT_TIME,
@@ -42,7 +42,7 @@ class PV(object):
         P, self._prev = self._prev, data
 
         if data.update_count!=1:
-            self.notify.add(util.AlarmEvent(data, util.RES_LOST))
+            self.notify.add(util.AlarmEvent(data, None, util.RES_LOST))
 
         reason = None
         if P is None:
@@ -55,6 +55,14 @@ class PV(object):
             return
 
         if data.ok:
+            if self._meta is None:
+                from cothread import catools as ca
+                try:
+                    # Fetch CA display meta-data
+                    self._meta = ca.caget(data.name, format=ca.FORMAT_CTRL, timeout=2)
+                except:
+                    LOG.exception('Failed to fetch metadata for %s', data.name)
+
             if P.severity and not data.severity:
                 reason = util.RES_NORMAL
             elif not P.severity and data.severity:
@@ -64,10 +72,11 @@ class PV(object):
             elif P.severity > data.severity:
                 reason = util.RES_DECREASE
         elif P.ok:
+            self._meta = None # will fetch meta-data again on reconnect
             reason = util.RES_DISCONN
 
         if reason is not None:
-            evt = util.AlarmEvent(data, reason, self._conf)
+            evt = util.AlarmEvent(data, self._meta, reason, self._conf)
             if not self._notify.add(evt):
                 LOG.error('Lost: %s', evt)
             else:
