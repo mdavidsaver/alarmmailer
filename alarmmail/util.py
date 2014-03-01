@@ -64,7 +64,7 @@ class AlarmEvent(object):
     def desc(self):
         return self.conf.desc.get(self._data.name, self._data.name)
     def __repr__(self):
-        return 'AlarmEvent(%s, %s, %s)'%(self._data, self.severity, self.reason)
+        return 'AlarmEvent(\'%s\', %s, %s, %s)'%(self._data.name, self._data, self.severity, self.reason)
 
 class InternalEvent(object):
     def __init__(self, reason):
