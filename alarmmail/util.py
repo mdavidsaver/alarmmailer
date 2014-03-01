@@ -116,7 +116,7 @@ class WorkerQueue(object):
         self.T.Wait()
 
     def add(self, evt):
-        if len(self._Q)>self.qsize:
+        if len(self._Q)>=self.qsize:
             if not self.overflow:
                 self.overflow = True
                 LOG.debug("%s queue overflow", self)
