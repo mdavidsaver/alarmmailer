@@ -1,0 +1,94 @@
+#! /bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          alarmmailer
+# Required-Start:    $remote_fs $local_fs $network $syslog $time
+# Required-Stop:     $remote_fs $local_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: EPICS alarm emailer
+# Description:       Monitors a set of PVs and sends batch emails on alarm state changes
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/alarmmailer
+DNAME=alarmmailer
+NAME=alarmmailer
+
+# defaults
+RUN=no
+RUN_AS_USER=ioclogserver
+
+CONF_FILE="/etc/ioclogserver.conf"
+PID_FILE="/var/run/$NAME.pid"
+
+DAEMON_OPTS="-D -C $CONF_FILE -T /etc/alarmmailer -P $PID_FILE -L /var/log/alarmmailer/alarmmailer -U $RUN_AS_USER"
+
+# Include admin settings if available
+if [ -f /etc/default/alarmmailer ] ; then
+    . /etc/default/alarmmailer
+fi
+
+SSD_OPTS="-q --pidfile $PID_FILE --user $RUN_AS_USER --name $DNAME --startas $DAEMON"
+
+set -e
+
+. /lib/lsb/init-functions
+
+serv_start() {
+	start-stop-daemon --start $SSD_OPTS -- $DAEMON_OPTS
+}
+
+serv_stop() {
+	start-stop-daemon --stop $SSD_OPTS
+}
+
+serv_status() {
+	#Debian >= 7...
+	#start-stop-daemon --status $SSD_OPTS
+	#Debian <= 6 (and others)
+	status_of_proc -p "$PID_FILE" "" "$NAME"
+}
+
+serv_restart() {
+	serv_stop && sleep 1 && serv_start
+}
+
+case "$1" in
+  start)
+	echo -n "Starting $NAME: "
+	serv_start
+	RET=$?
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $NAME: "
+	serv_stop
+	RET=$?
+	echo "$NAME."
+	;;
+  force-reload)
+	# check whether $DAEMON is running. If so, restart
+	echo -n "Reloading $NAME: "
+	serv_status && serv_restart
+	RET=$?
+	echo "$NAME."
+	;;
+  restart)
+	echo -n "Restarting $NAME: "
+	serv_restart
+	RET=$?
+	echo "$NAME."
+	;;
+  status)
+	serv_status
+	RET=$?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit ${RET:=42}
