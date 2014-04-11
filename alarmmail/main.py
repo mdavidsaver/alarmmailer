@@ -26,7 +26,9 @@ def main():
                       help="Write logs to this file")
     parser.add_option('-C','--config', default='daemon.conf', metavar='FILE',
                       help='Read configuration from this file')
-        
+    parser.add_option('-U','--user',metavar='USER[:GROUP]',
+                      help='Switch to this user (and group) after starting')
+
     opts, args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -47,6 +49,16 @@ def main():
 
     else:
         done = daemonize.NullNotify()
+
+    if opts.user:
+        try:
+            # Drop permissions
+            uname, _, gname = opts.user.partition(':')
+            daemonize.switchUID(uname, gname)
+            done.msg('Switch permissions to %d:%d'%(os.getuid(),os.getgid()))
+        except:
+            done.exception('Failed to switch user/group')
+            raise
 
     LOG.info('initialize coselect')
     from cothread.coselect import select_hook

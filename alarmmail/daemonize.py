@@ -101,7 +101,7 @@ def daemonize(logfile='log', pidfile='pid'):
 
     os.chdir('/')
     os.setsid()
-    os.umask(0)
+    os.umask(0002)
 
     c2pid = os.fork()
     if c2pid > 0:
@@ -148,11 +148,50 @@ def daemonize(logfile='log', pidfile='pid'):
 
     return WR
 
+def switchUID(uname, gname=None):
+    import pwd, grp
+    # Lookup name and user info
+    try:
+        # See if we were given a numeric UID
+        uid = int(uname)
+    except ValueError:
+        # if not, then lookup the username
+        user = pwd.getpwnam(uname)
+        uid = user.pw_uid
+    else:
+        user = pwd.getpwuid(uid)
+    if not gname:
+        # if not group is provided, pick user's primary group
+        gid = user.pw_gid
+    else:
+        try:
+            gid = int(gname)
+        except ValueError:
+            group = grp.getgrnam(gname)
+            gid = group.gr_gid
+
+    os.setgid(gid)
+    os.setuid(uid)
+
 if __name__=='__main__':
+    user, group = None, None
+    if len(sys.argv)>2:
+        user = sys.argv[2]
+    if len(sys.argv)>3:
+        group = sys.argv[3]
+
     if sys.argv[1]=='normal':
         N=daemonize()
-        N.done(0,'Working')
         LOG.info('normal is normal')
+        if user:
+            N.msg('Dropping permissions: %s:%s'%(user,group))
+            try:
+                switchUID(user, group)
+            except:
+                N.exception('switchUID failed')
+            else:
+                N.msg('Switch to %d:%d'%(os.getuid(),os.getgid()))
+        N.done(0,'Working')
         time.sleep(1)
         LOG.info('normal is done')
         sys.exit(0)
