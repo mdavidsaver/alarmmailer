@@ -133,10 +133,8 @@ def loadconfig(cfile):
     pvnodes = dict([(S,PVNode(SectionProxy(pvconf,S))) for S in pvconf.sections()])
     destnodes = dict([(S,DestNode(SectionProxy(destconf,S))) for S in destconf.sections()])
 
-    if not pvnodes:
-        raise ValueError("No PV groups")
-    if not destnodes:
-        raise ValueError("No destinations")
+    if (not pvnodes) ^ (not destnodes):
+        raise ValueError("Incomplete configuration.  No PV groups or no Destinations")
 
     for dest in destnodes.itervalues():
         for G in dest.groups:
