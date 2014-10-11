@@ -19,21 +19,11 @@ class TestNotifier(notifier.Notifier):
         notifier.Notifier.__init__(self, dest, serv)
         self._loader = DummyLoader()
 
-def main():
-    parser = OptionParser()
-    parser.add_option('--to', help='Destination address(es)')
-    parser.add_option('--from', dest='mfrom', help='Source address')
-    parser.add_option('--server', help='SMTP server')
-    parser.add_option('--nosend', action='store_true', default=False, help="Print message without sending")
-
-    opts, args = parser.parse_args()
-
-    logging.basicConfig(level=logging.DEBUG)
-
+def main(opts, C):
     LOG.info('Starting mail sender')
 
-    mail = config.SectionProxy.fromArgs('mail', server=opts.server, timeout='5',
-                                        delay='1', holdoff='2', nosend=str(opts.nosend))
+    mail = C['mail']
+    mail.set('nosend', 'true' if opts.nosend else 'false')
 
     mailserv = notifier.EmailServer(mail)
 
@@ -56,6 +46,3 @@ def main():
     mailserv.close()
 
     LOG.info('Done')
-
-if __name__=='__main__':
-    main()

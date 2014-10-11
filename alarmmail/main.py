@@ -10,35 +10,10 @@ LOG = logging.getLogger(__name__)
 
 import sys, os
 
-from optparse import  OptionParser
-
 from . import config
+from . import mailtest
 
-def main():
-    parser = OptionParser()
-    parser.add_option('-D','--daemonize', action='store_true', default=False,
-                      help="Fork to background")
-    parser.add_option('-T','--template', default=os.getcwd(), metavar='DIR',
-                      help='Directory with email templates')
-    parser.add_option('-P','--pid', default='daemon.pid', metavar='FILE',
-                      help="Write daemon process id to this file")
-    parser.add_option('-L','--log', default='daemon.log', metavar='FILE',
-                      help="Write logs to this file")
-    parser.add_option('-C','--config', default='daemon.conf', metavar='FILE',
-                      help='Read configuration from this file')
-    parser.add_option('-O','--check-config', action='store_true',
-                      help='Exit after checking configuration')
-    parser.add_option('-U','--user',metavar='USER[:GROUP]',
-                      help='Switch to this user (and group) after starting')
-
-    opts, args = parser.parse_args()
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    C = config.loadconfig(opts.config)
-    if opts.check_config:
-        sys.exit(0)
-
+def rundaemon(opts, C):
     import daemonize
 
     if opts.daemonize:
@@ -136,3 +111,47 @@ def main():
 
     import cothread
     cothread.WaitForQuit()
+
+def getopts():
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument('-T','--template', default=os.getcwd(), metavar='DIR',
+                      help='Directory with email templates')
+    parser.add_argument('-L','--log', default='daemon.log', metavar='FILE',
+                      help="Write logs to this file")
+    parser.add_argument('-C','--config', default='daemon.conf', metavar='FILE',
+                      help='Read configuration from this file')
+    parser.add_argument('-O','--check-config', action='store_true',
+                      help='Exit after checking configuration')
+
+    subp = parser.add_subparsers()
+
+    mtest = subp.add_parser('mailtest', help='Test email configuration')
+    mtest.add_argument('--from', default='testmail@localhost', dest='mfrom',
+                       help='Source address')
+    mtest.add_argument('--to', help='Destination address(es)')
+    mtest.add_argument('--nosend', action='store_true', default=False, help="Print message without sending")
+    mtest.set_defaults(action=mailtest.main)
+
+    daemon = subp.add_parser('daemon', help='Notification daemon')
+    daemon.add_argument('-D','--daemonize', action='store_true', default=False,
+                      help="Fork to background")
+    daemon.add_argument('-P','--pid', default='daemon.pid', metavar='FILE',
+                      help="Write daemon process id to this file")
+    daemon.add_argument('-U','--user',metavar='USER[:GROUP]',
+                      help='Switch to this user (and group) after starting')
+    daemon.set_defaults(action=rundaemon)
+
+    return parser.parse_args()
+
+def main(opts=None):
+    if opts is None:
+        opts = getopts()
+    logging.basicConfig(level=logging.DEBUG)
+
+    C = config.loadconfig(opts.config)
+    if opts.check_config:
+        sys.exit(0)
+
+    print opts.action
+    opts.action(opts, C)

@@ -49,6 +49,9 @@ class SectionProxy(object):
         except (ValueError, NoOptionError, NoSectionError):
             return default
 
+    def set(self, key, value):
+        self._conf.set(self._sect, key, value)
+
     @classmethod
     def fromArgs(cls, name, **kws):
         """Build a section from provided keyword arguments.

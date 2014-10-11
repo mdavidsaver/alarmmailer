@@ -12,7 +12,7 @@ setup(
   url = 'http://github.com/mdavidsaver/alarmmailer',
   
   packages = ['alarmmail', 'alarmmail.templatetags'],
-  scripts = ['alarmmailer', 'alarmmailertest'],
+  scripts = ['alarmmailer'],
   data_files = [
     ('/etc/alarmmailer', ['mailer.conf', 'pvs.conf', 'dest.conf',
                           'template.txt', 'template.html']),
