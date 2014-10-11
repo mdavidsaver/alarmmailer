@@ -8,7 +8,7 @@ See license in README
 import logging
 LOG = logging.getLogger(__name__)
 
-import os
+import sys, os
 
 from optparse import  OptionParser
 
@@ -26,6 +26,8 @@ def main():
                       help="Write logs to this file")
     parser.add_option('-C','--config', default='daemon.conf', metavar='FILE',
                       help='Read configuration from this file')
+    parser.add_option('-O','--check-config', action='store_true',
+                      help='Exit after checking configuration')
     parser.add_option('-U','--user',metavar='USER[:GROUP]',
                       help='Switch to this user (and group) after starting')
 
@@ -34,6 +36,8 @@ def main():
     logging.basicConfig(level=logging.DEBUG)
 
     C = config.loadconfig(opts.config)
+    if opts.check_config:
+        sys.exit(0)
 
     import daemonize
 

@@ -55,6 +55,10 @@ serv_restart() {
 	serv_stop && sleep 1 && serv_start
 }
 
+serv_check() {
+	$DAEMON $DAEMON_OPTS -O
+}
+
 case "$1" in
   start)
 	echo -n "Starting $NAME: "
@@ -76,6 +80,10 @@ case "$1" in
 	echo "$NAME."
 	;;
   restart)
+	if ! serv_check; then
+		echo "Configuration error.  Restart aborted"
+		exit 1
+	fi
 	echo -n "Restarting $NAME: "
 	serv_restart
 	RET=$?
@@ -85,9 +93,14 @@ case "$1" in
 	serv_status
 	RET=$?
 	;;
+  check)
+	echo -n "Checking configuration of $NAME"
+	serv_check
+	RET=$?
+        ;;
   *)
 	N=/etc/init.d/$NAME
-	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|force-reload|check}" >&2
 	exit 1
 	;;
 esac
