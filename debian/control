@@ -1,0 +1,21 @@
+Source: alarmmailer
+Section: admin
+Priority: optional
+Maintainer: Michael Davidsaver <mdavidsaver@gmail.com>
+Build-Depends: debhelper (>= 7.0.50~), dh-python,
+               python-all, python-all-dbg,
+               python-cothread (>= 2.12~),
+XS-Python-Version: >= 2.7
+Standards-Version: 3.9.4
+Homepage: http://github.com/mdavidsaver/alarmmailer
+Vcs-Git:  https://github.com/mdavidsaver/alarmmailer.git
+Vcs-Browser: http://github.com/mdavidsaver/alarmmailer
+
+Package: alarmmailer
+Architecture: all
+Depends: ${python:Depends}, ${misc:Depends},
+XB-Python-Version: ${python:Versions}
+Description: Email alarm notifier for EPICS
+ A daemon which monitors the alarm status a set of EPICS process variables
+ and sends email notifications when this status changes.
+ Provides configurable batching of emails to avoid spamming.

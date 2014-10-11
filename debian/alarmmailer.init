@@ -19,10 +19,11 @@ NAME=alarmmailer
 RUN=no
 RUN_AS_USER=ioclogserver
 
-CONF_FILE="/etc/ioclogserver.conf"
+CONF_DIR="/etc/alarmmailer"
+LOG_DIR="/var/log/alarmmailer"
 PID_FILE="/var/run/$NAME.pid"
 
-DAEMON_OPTS="-D -C $CONF_FILE -T /etc/alarmmailer -P $PID_FILE -L /var/log/alarmmailer/alarmmailer -U $RUN_AS_USER"
+DAEMON_OPTS="-D -C $CONF_DIR/mailer.conf -T $CONF_DIR -P $PID_FILE -L $LOG_DIR/mailer.log -U $RUN_AS_USER"
 
 # Include admin settings if available
 if [ -f /etc/default/alarmmailer ] ; then

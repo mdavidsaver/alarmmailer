@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ] && ! grep -q '^alarmmailer:' /etc/passwd; then
+    adduser --system --home /etc/alarmmailer \
+            --no-create-home --disabled-password alarmmailer > /dev/null 2>&1
+fi
+
+#DEBHELPER#
