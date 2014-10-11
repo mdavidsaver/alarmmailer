@@ -5,10 +5,9 @@ Logs of alarms are send to pre-configured lists of recipients.
 
 Requirements:
 
-Python - >=2.6, <3.0
+Python - >=2.7, <3.0
 Django - >=1.2
-cothread - Requires development version
-  https://github.com/mdavidsaver/cothread/
+cothread - >=2.12
 
 Configuration is in three files.  The main file (eg. mailer.conf)
 references the other two (eg. dest.conf and pvs.conf) which
