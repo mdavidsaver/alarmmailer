@@ -8,7 +8,21 @@ See license in README
 import logging
 LOG = logging.getLogger(__name__)
 
-import time
+import time, os
+
+def djangosetup(opts):
+    if 'DJANGO_SETTINGS_MODULE' in os.environ:
+        return
+    from django.conf import settings
+    settings.configure(INSTALLED_APPS=['alarmmail'],
+                       TEMPLATE_DIRS=opts.template.split(':'),
+                       TEMPLATE_DEBUG=True)
+    try:
+        from django import setup
+    except ImportError:
+        pass # django <1.7
+    else:
+        setup()
 
 _SEVR = {0:'No Alarm', 1:'Minor   ', 2:'Major   ', 3:'Invalid ', 4:'Disconn.'}
 def SEVR(sevr):

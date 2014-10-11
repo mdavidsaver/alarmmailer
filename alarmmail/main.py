@@ -10,8 +10,7 @@ LOG = logging.getLogger(__name__)
 
 import sys, os
 
-from . import config
-from . import mailtest
+from . import config, mailtest, util
 
 def rundaemon(opts, C):
     import daemonize
@@ -44,11 +43,7 @@ def rundaemon(opts, C):
     select_hook()
 
     try:
-        if 'DJANGO_SETTINGS_MODULE' not in os.environ:
-            from django.conf import settings
-            settings.configure(INSTALLED_APPS=['alarmmail'],
-                               TEMPLATE_DIRS=opts.template.split(':'),
-                               TEMPLATE_DEBUG=True)
+        util.djangosetup(opts)
 
         from . import notifier
 
@@ -126,13 +121,7 @@ def getopts():
 
     subp = parser.add_subparsers()
 
-    mtest = subp.add_parser('mailtest', help='Test email configuration')
-    mtest.add_argument('--from', default='testmail@localhost', dest='mfrom',
-                       help='Source address')
-    mtest.add_argument('--to', help='Destination address(es)')
-    mtest.add_argument('--nosend', action='store_true', default=False, help="Print message without sending")
-    mtest.set_defaults(action=mailtest.main)
-
+    # Main daemon
     daemon = subp.add_parser('daemon', help='Notification daemon')
     daemon.add_argument('-D','--daemonize', action='store_true', default=False,
                       help="Fork to background")
@@ -142,6 +131,22 @@ def getopts():
                       help='Switch to this user (and group) after starting')
     daemon.set_defaults(action=rundaemon)
 
+    # test mail sender
+    mtest = subp.add_parser('mailtest', help='Test email configuration')
+    mtest.add_argument('--from', default='testmail@localhost', dest='mfrom',
+                       help='Source address')
+    mtest.add_argument('--to', help='Destination address(es)')
+    mtest.add_argument('--nosend', action='store_true', default=False, help="Print message without sending")
+    mtest.set_defaults(action=mailtest.sendmail)
+
+    # test template expander
+    ttest = subp.add_parser('expandtest', help='Test template expander')
+    ttest.add_argument('--from', default='testmail@localhost', dest='mfrom',
+                       help='Source address')
+    ttest.add_argument('--to', default='someone@xyz', help='Destination address(es)')
+    ttest.add_argument('templatefile')
+    ttest.set_defaults(action=mailtest.expand)
+    
     return parser.parse_args()
 
 def main(opts=None):
@@ -153,5 +158,4 @@ def main(opts=None):
     if opts.check_config:
         sys.exit(0)
 
-    print opts.action
     opts.action(opts, C)
