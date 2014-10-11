@@ -14,6 +14,7 @@ Vcs-Browser: http://github.com/mdavidsaver/alarmmailer
 Package: alarmmailer
 Architecture: all
 Depends: ${python:Depends}, ${misc:Depends},
+         python-cothread (>= 2.12~),
 XB-Python-Version: ${python:Versions}
 Description: Email alarm notifier for EPICS
  A daemon which monitors the alarm status a set of EPICS process variables
