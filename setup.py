@@ -14,6 +14,7 @@ setup(
   packages = ['alarmmail', 'alarmmail.templatetags'],
   scripts = ['alarmmailer', 'alarmmailertest'],
   data_files = [
-    ('/etc/alarmmailer', ['mailer.conf', 'pvs.conf', 'dest.conf']),
+    ('/etc/alarmmailer', ['mailer.conf', 'pvs.conf', 'dest.conf',
+                          'template.txt', 'template.html']),
   ]
 )
