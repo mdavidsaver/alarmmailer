@@ -148,27 +148,76 @@ def daemonize(logfile='log', pidfile='pid'):
 
     return WR
 
-def switchUID(uname, gname=None):
-    import pwd, grp
-    # Lookup name and user info
+def getuidgid(user, group=None):
+    """Translate provided user (and optional group) into a uid,gid pair.
+
+    >>> import os, pwd, grp
+    >>> getuidgid('root')
+    (0, 0)
+    >>> getuidgid('0')
+    (0, 0)
+    >>> getuidgid('root', 'root')
+    (0, 0)
+    >>> getuidgid('root', '0')
+    (0, 0)
+    >>> getuidgid('0', 'root')
+    (0, 0)
+    >>> getuidgid('0', '0')
+    (0, 0)
+    >>> myuid = os.getuid()
+    >>> myuser = pwd.getpwuid(myuid).pw_name
+    >>> mygid = pwd.getpwuid(myuid).pw_gid
+    >>> mygrp = grp.getgrgid(mygid).gr_name
+    >>> smyuid, smygid = str(myuid), str(mygid)
+    >>> getuidgid(myuser) == (myuid, mygid)
+    True
+    >>> getuidgid(smyuid) == (myuid, mygid)
+    True
+    >>> getuidgid(myuser, mygrp) == (myuid, mygid)
+    True
+    >>> getuidgid(myuser, smygid) == (myuid, mygid)
+    True
+    >>> getuidgid(smyuid, mygrp) == (myuid, mygid)
+    True
+    >>> getuidgid(smyuid, smygid) == (myuid, mygid)
+    True
+    >>> getuidgid(myuser, 'invalidgrp')
+    Traceback (most recent call last):
+        ...
+    KeyError: 'getgrnam(): name not found: invalidgrp'
+    >>> getuidgid('invaliduser', 'invalidgrp')
+    Traceback (most recent call last):
+        ...
+    KeyError: 'getpwnam(): name not found: invaliduser'
+    """
+    import pwd, grp, os
     try:
-        # See if we were given a numeric UID
-        uid = int(uname)
-    except ValueError:
-        # if not, then lookup the username
-        user = pwd.getpwnam(uname)
-        uid = user.pw_uid
-    else:
-        user = pwd.getpwuid(uid)
-    if not gname:
-        # if not group is provided, pick user's primary group
-        gid = user.pw_gid
+        uent = pwd.getpwnam(user)
+        uid, pgid = uent.pw_uid, uent.pw_gid
+    except KeyError as e:
+        try:
+            uid = int(user) if user else os.getuid()
+        except ValueError:
+            raise e
+        uent = pwd.getpwuid(uid)
+        pgid = uent.pw_gid
+
+    if not group:
+        gid = pgid
     else:
         try:
-            gid = int(gname)
-        except ValueError:
-            group = grp.getgrnam(gname)
-            gid = group.gr_gid
+            gid = grp.getgrnam(group).gr_gid
+        except KeyError as e:
+            try:
+                gid = int(group)
+            except ValueError:
+                raise e
+            gid = grp.getgrgid(gid).gr_gid
+
+    return uid, gid
+
+def switchUID(uname, gname=None):
+    uid, gid = getuidgid(uname, gname)
 
     os.setgid(gid)
     os.setuid(uid)
@@ -199,6 +248,10 @@ if __name__=='__main__':
     elif sys.argv[1]=='fail':
         N=daemonize()
         N.done(5,'oh no!')
+
+    elif sys.argv[1]=='doctest':
+      import doctest
+      doctest.testmod()
 
     else:
         print 'What is this',sys.argv[1],'of which you speak?'
