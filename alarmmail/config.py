@@ -8,9 +8,44 @@ See license in README
 import logging
 LOG = logging.getLogger(__name__)
 
-import os, os.path, itertools
+import re, os, os.path, itertools
 
 from ConfigParser import SafeConfigParser as ConfigParser, NoOptionError, NoSectionError
+
+_addr_tok = re.compile(r'(")|(,)|([^",]+)')
+
+def splitaddr(inp):
+    """Split a comma seperated list of quoted email addresses
+    
+    >>> splitaddr('  Aa a  ,   Bb b  ,   Ccc ')
+    ['Aa a', 'Bb b', 'Ccc']
+    >>> splitaddr(' " Aaa, Bbb" Ccc , Ddd')
+    ['" Aaa, Bbb" Ccc', 'Ddd']
+    >>> splitaddr('"Last, First" <flast@xyz.com>, "Test,, other" <aa@bb>')
+    ['"Last, First" <flast@xyz.com>', '"Test,, other" <aa@bb>']
+    """
+    inp = inp.strip()
+    if not inp:
+        return []
+
+    addrs = [''] # we will return at last one entry for a non-empty string
+    inQ = False
+
+    for Q, C, val in _addr_tok.findall(inp):
+        if Q:
+            inQ ^= True # toggle quote status
+            addrs[-1] += Q
+        elif inQ:
+            addrs[-1] += C or val
+        elif C:
+            addrs.append('') # start next addr
+        elif val:
+            addrs[-1] += val
+        else:
+            assert False, "Logic error"
+
+    return map(str.strip, addrs)
+
 
 class SectionProxy(object):
     _True = ['t','y','true','yes']
@@ -96,7 +131,7 @@ class PVNode(object):
 class DestNode(object):
     def __init__(self, C):
         self.name = C.name
-        self.mto = C.get('to','').split(',')
+        self.mto = splitaddr(C.get('to',''))
         self.mfrom = C.get('from', '"Alarm Mailer" <mailer@localhost>')
         self.msubject = C.get('subject', '%(cnt)d Alarm Events')
 
@@ -152,5 +187,5 @@ def loadconfig(cfile):
             "dest":destnodes}
 
 if __name__=='__main__':
-    import sys
-    print loadconfig(sys.argv[1])
+    import doctest
+    doctest.testmod()
