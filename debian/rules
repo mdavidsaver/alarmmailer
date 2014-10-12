@@ -5,5 +5,13 @@ export DH_VERBOSE=1
 %:
 	dh $@ --with python2 -Spybuild
 
+override_dh_auto_build:
+	dh_auto_build
+	pod2man -c '' -s 1 -r '' alarmmailer.pod > alarmmailer.1
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f alarmmailer.1
+
 override_dh_installinit:
 	dh_installinit --error-handler=true

@@ -1,0 +1,73 @@
+=pod
+
+=head1 NAME
+
+alarmmailer - EPICS alarm emailer daemon
+
+=head1 SYNOPSIS
+
+B<alarmmailer> [common] B<daemon> [-D] [-P <pidfile>] [-U <user[:group]>]
+
+B<alarmmailer> [common] B<mailtest> [--from <email>] [--to <email>] [--nosend]
+
+B<alarmmailer> [common] B<expandtest> [--from <email>] [--to <email>] <templatefile>
+
+=head1 DESCRIPTION
+
+This executable has three functions.
+Its primary function is to act as a B<daemon>.
+In addtion it has two secondary functions B<mailtest> and B<expandtest>.
+
+=head2 mailtest
+
+Sends a test email to verify mailer configuration
+
+=head2 expandtest
+
+Expand named template file with a pre-defined list of alarm events
+to assist in template file development.
+
+=head1 OPTIONS
+
+=over 1
+
+=item B<-T> I<DIR>, B<--template>=I<DIR>
+
+Directory container template files.
+
+=item B<-L> I<FILE>, B<--log>=I<FILE>
+
+Log file name.
+
+=item B<-C> I<FILE>, B<--config>=I<FILE>
+
+Main configuration file.
+
+=item B<-O>, B<--check-config>
+
+Check configuration and exit.
+
+=back
+
+=head1 FILES
+
+=over 1
+
+=item F</etc/alarmmailer/mailer.conf>
+
+Main configuration file.
+
+=item F</var/log/alarmmailer/mailer.log>
+
+Daemon log file.
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2014 Michael Davidsaver <mdavidsaver@gmail.com>
+
+This is free software distributed under the terms of the GPL version 2 or later.
+See LICENSE file for details.
+
+=cut
