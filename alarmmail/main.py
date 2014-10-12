@@ -102,9 +102,9 @@ def getopts():
     parser = ArgumentParser()
     parser.add_argument('-T','--template', default=os.getcwd(), metavar='DIR',
                       help='Directory with email templates')
-    parser.add_argument('-L','--log', default='daemon.log', metavar='FILE',
+    parser.add_argument('-L','--log', default='mailer.log', metavar='FILE',
                       help="Write logs to this file")
-    parser.add_argument('-C','--config', default='daemon.conf', metavar='FILE',
+    parser.add_argument('-C','--config', default='mailer.conf', metavar='FILE',
                       help='Read configuration from this file')
     parser.add_argument('-O','--check-config', action='store_true',
                       help='Exit after checking configuration')
