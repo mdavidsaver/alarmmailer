@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 #DEBHELPER#
 
@@ -7,3 +6,5 @@ if [ "$1" = "purge" ] && grep -q '^alarmmailer' /etc/passwd >/dev/null; then
     echo "Removing user alarmmailer"
     userdel alarmmailer || echo "WARNING: problem removing user alarmmailer"
 fi
+
+[ "$1"  = "purge" ] && rm -rf /var/run/alarmmailer || true

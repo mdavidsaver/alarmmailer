@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 if [ "$1" = "configure" ] && ! grep -q '^alarmmailer:' /etc/passwd; then
     adduser --system --home /etc/alarmmailer \

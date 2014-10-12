@@ -16,7 +16,7 @@ def rundaemon(opts, C):
     import daemonize
 
     if opts.daemonize:
-        done = daemonize.daemonize(opts.log, opts.pid)
+        done = daemonize.daemonize(opts)
         import signal
         def handler(sig,frame):
             import cothread
@@ -28,19 +28,11 @@ def rundaemon(opts, C):
     else:
         done = daemonize.NullNotify()
 
-    if opts.user:
-        try:
-            # Drop permissions
-            uname, _, gname = opts.user.partition(':')
-            daemonize.switchUID(uname, gname)
-            done.msg('Switch permissions to %d:%d'%(os.getuid(),os.getgid()))
-        except:
-            done.exception('Failed to switch user/group')
-            raise
-
     LOG.info('initialize coselect')
     from cothread.coselect import select_hook
     select_hook()
+
+    import util
 
     try:
         util.djangosetup(opts)
@@ -75,8 +67,6 @@ def rundaemon(opts, C):
             else:
                 for dest in dests:
                     node.add_notify(dest)
-
-        import util
 
         # notify interested parties that we are running
         for dest in notifiers:

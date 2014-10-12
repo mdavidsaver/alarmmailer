@@ -125,10 +125,12 @@ def loadconfig(cfile):
         raise ValueError('%s: missing [main]'%cfile)
     MS = SectionProxy(main, 'main')
 
+    confdir = os.path.dirname(cfile)
+    
     pvconf, destconf = ConfigParser(), ConfigParser()
-    with open(MS.get('pvfile','pvs.conf'), 'r') as FP:
+    with open(os.path.join(confdir, MS.get('pvfile','pvs.conf')), 'r') as FP:
         pvconf.readfp(FP)
-    with open(MS.get('destfile','dest.conf'), 'r') as FP:
+    with open(os.path.join(confdir, MS.get('destfile','dest.conf')), 'r') as FP:
         destconf.readfp(FP)
 
     pvnodes, destnodes = [], []

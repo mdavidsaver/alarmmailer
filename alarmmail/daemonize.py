@@ -59,7 +59,15 @@ class NullNotify(object):
     def __exit__(self, A, B, C):
         pass
 
-def daemonize(logfile='log', pidfile='pid'):
+def rmfile(fn):
+    LOG.info('Deleting %s', fn)
+    try:
+        os.unlink(fn)
+    except:
+        LOG.exception("Can't delete")
+    LOG.info('After rm')
+
+def daemonize(opts):
     """Fun double fork to free the daemon process
     of its parent.
     Returns a UserNotify instance which the grandchild
@@ -67,8 +75,13 @@ def daemonize(logfile='log', pidfile='pid'):
     let it know when to exit.
     """
     # Expand file names before fork to allow relative directories
-    logfile = os.path.abspath(logfile)
-    pidfile = os.path.abspath(pidfile)
+    logfile = os.path.abspath(opts.log)
+    pidfile = os.path.abspath(opts.pid)
+
+    if opts.user:
+        uname, _, gname = opts.user.partition(':')
+        uid, gid = getuidgid(uname, gname)
+
     # A pipe to allow the parent to wait until the child
     # has successfully initialized (or not).
     RD, WR = os.pipe()
@@ -137,14 +150,27 @@ def daemonize(logfile='log', pidfile='pid'):
         # will fail if PID file already exist (pidfile doubles as lockfile)
         FD = os.open(pidfile, os.O_CREAT|os.O_EXCL|os.O_WRONLY, 0644)
         # its ours, so try to cleanup properly
-        atexit.register(os.unlink, pidfile)
+        atexit.register(rmfile, pidfile)
         os.write(FD, "%d"%os.getpid())
         os.close(FD)
     except:
         WR.exception("Failed to create pid file %s"%pidfile)
         WR.done(1)
+        raise RuntimeError("shouldn't be here")
+
     # At this point we know we have exclusive control of the log
     WR.msg("PID written to %s"%pidfile)
+
+    if opts.user:
+        # fix permissions on log and pid files so we can
+        # use them after dropping permissions
+        os.chown(pidfile, uid, gid)
+        os.chown(logfile, uid, gid)
+        
+        # drop permissions
+        os.setgid(gid)
+        os.setuid(uid)
+        WR.msg('Switch permissions to %d:%d'%(os.getuid(),os.getgid()))
 
     return WR
 
@@ -215,12 +241,6 @@ def getuidgid(user, group=None):
             gid = grp.getgrgid(gid).gr_gid
 
     return uid, gid
-
-def switchUID(uname, gname=None):
-    uid, gid = getuidgid(uname, gname)
-
-    os.setgid(gid)
-    os.setuid(uid)
 
 if __name__=='__main__':
     user, group = None, None

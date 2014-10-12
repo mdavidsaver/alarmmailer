@@ -21,7 +21,8 @@ RUN_AS_USER=alarmmailer
 
 CONF_DIR="/etc/alarmmailer"
 LOG_DIR="/var/log/alarmmailer"
-PID_FILE="/var/run/$NAME.pid"
+PID_DIR="/var/run/alarmmailer"
+PID_FILE="$PID_DIR/$NAME.pid"
 
 DAEMON_OPTS="-C $CONF_DIR/mailer.conf -T $CONF_DIR -L $LOG_DIR/mailer.log daemon -D -P $PID_FILE -U $RUN_AS_USER"
 
@@ -30,13 +31,15 @@ if [ -f /etc/default/alarmmailer ] ; then
     . /etc/default/alarmmailer
 fi
 
-SSD_OPTS="-q --pidfile $PID_FILE --user $RUN_AS_USER --name $DNAME --startas $DAEMON"
+SSD_OPTS="-q --retry 2 --pidfile $PID_FILE --user $RUN_AS_USER --name $DNAME --startas $DAEMON"
 
 set -e
 
 . /lib/lsb/init-functions
 
 serv_start() {
+        install -d -o$RUN_AS_USER -gnogroup "$PID_DIR"
+	install -d -o$RUN_AS_USER -gnogroup "$LOG_DIR"
 	start-stop-daemon --start $SSD_OPTS -- $DAEMON_OPTS
 }
 
@@ -56,7 +59,7 @@ serv_restart() {
 }
 
 serv_check() {
-	$DAEMON $DAEMON_OPTS -O
+	$DAEMON -O $DAEMON_OPTS
 }
 
 case "$1" in
@@ -64,20 +67,20 @@ case "$1" in
 	echo -n "Starting $NAME: "
 	serv_start
 	RET=$?
-	echo "$NAME."
+        echo "done $RET"
 	;;
   stop)
 	echo -n "Stopping $NAME: "
 	serv_stop
 	RET=$?
-	echo "$NAME."
+	echo "done $RET"
 	;;
   force-reload)
 	# check whether $DAEMON is running. If so, restart
 	echo -n "Reloading $NAME: "
 	serv_status && serv_restart
 	RET=$?
-	echo "$NAME."
+        echo "done $RET"
 	;;
   restart)
 	if ! serv_check; then
@@ -87,7 +90,7 @@ case "$1" in
 	echo -n "Restarting $NAME: "
 	serv_restart
 	RET=$?
-	echo "$NAME."
+        echo "done $RET"
 	;;
   status)
 	serv_status
