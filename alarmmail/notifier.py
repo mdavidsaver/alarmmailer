@@ -64,7 +64,7 @@ class Notifier(util.WorkerQueue):
         msg = MIMEMultipart('alternative')
 
         # take mail header directly from configuration
-        msg['Subject'] = self._conf.msubject%{'cnt':len(evts)}
+        msg['Subject'] = self._conf.msubject%{'cnt':len(evts),'name':self._conf.name}
         msg['From'] = self._conf.mfrom
         msg['To'] = ', '.join(self._conf.mto)
 
