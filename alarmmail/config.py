@@ -15,7 +15,9 @@ from ConfigParser import SafeConfigParser as ConfigParser, NoOptionError, NoSect
 _addr_tok = re.compile(r'(")|(,)|([^",]+)')
 
 def splitaddr(inp):
-    """Split a comma seperated list of quoted email addresses
+    """Split a comma seperated list of quoted email addresses.
+    
+    Does not handled escaped quotes.
     
     >>> splitaddr('  Aa a  ,   Bb b  ,   Ccc ')
     ['Aa a', 'Bb b', 'Ccc']
@@ -23,6 +25,10 @@ def splitaddr(inp):
     ['" Aaa, Bbb" Ccc', 'Ddd']
     >>> splitaddr('"Last, First" <flast@xyz.com>, "Test,, other" <aa@bb>')
     ['"Last, First" <flast@xyz.com>', '"Test,, other" <aa@bb>']
+    >>> splitaddr('"Last, \\\\"First" <a@b.c>')
+    Traceback (most recent call last):
+       ...
+    ValueError: Unbalanced quotes in: "Last, \\"First" <a@b.c>
     """
     inp = inp.strip()
     if not inp:
@@ -43,6 +49,9 @@ def splitaddr(inp):
             addrs[-1] += val
         else:
             assert False, "Logic error"
+
+    if inQ:
+        raise ValueError('Unbalanced quotes in: '+inp)
 
     return map(str.strip, addrs)
 
